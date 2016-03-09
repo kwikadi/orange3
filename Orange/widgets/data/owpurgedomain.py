@@ -22,9 +22,12 @@ class OWPurgeDomain(widget.OWWidget):
     removeAttributes = Setting(1)
     removeClassAttribute = Setting(1)
     removeClasses = Setting(1)
+    removeMetas = Setting(1)
+    removeMetaAttributes = Setting(1)
     autoSend = Setting(False)
     sortValues = Setting(True)
     sortClasses = Setting(True)
+    sortMetas = Setting(True)
 
     want_main_area = False
     resizing_enabled = False
@@ -38,12 +41,20 @@ class OWPurgeDomain(widget.OWWidget):
                      ('removeClassAttribute', 'Remove constant class variables'
                       ))
 
+    meta_options = (('sortMetas', 'Sort discrete meta variable values'),
+                    ('removeMetas', 'Remove unused meta variable values'),
+                    ('removeMetaAttributes', 'Remove constant meta variables'
+                    ))
+
     stat_labels = (('Removed features', 'removedAttrs'),
                    ('Reduced features', 'reducedAttrs'),
                    ('Resorted features', 'resortedAttrs'),
                    ('Removed classes', 'removedClasses'),
                    ('Reduced classes', 'reducedClasses'),
-                   ('Resorted classes', 'resortedClasses'))
+                   ('Resorted classes', 'resortedClasses'),
+                   ('Reduced metas', 'reducedMetas'),
+                   ('Removed metas', 'removedMetas'),
+                   ('Resorted metas', 'resortedMetas'))
 
     def __init__(self):
         super().__init__()
@@ -55,6 +66,9 @@ class OWPurgeDomain(widget.OWWidget):
         self.removedClasses = "-"
         self.reducedClasses = "-"
         self.resortedClasses = "-"
+        self.removedMetas = "-"
+        self.reducedMetas = "-"
+        self.resortedMetas = "-"
 
         boxAt = gui.widgetBox(self.controlArea, "Features")
         for not_first, (value, label) in enumerate(self.feature_options):
@@ -65,6 +79,13 @@ class OWPurgeDomain(widget.OWWidget):
 
         boxAt = gui.widgetBox(self.controlArea, "Classes", addSpace=True)
         for not_first, (value, label) in enumerate(self.class_options):
+            if not_first:
+                gui.separator(boxAt, 2)
+            gui.checkBox(boxAt, self, value, label,
+                         callback=self.optionsChanged)
+
+        boxAt = gui.widgetBox(self.controlArea, "Metas", addSpace=True)
+        for not_first, (value, label) in enumerate(self.meta_options):
             if not_first:
                 gui.separator(boxAt, 2)
             gui.checkBox(boxAt, self, value, label,
@@ -91,6 +112,9 @@ class OWPurgeDomain(widget.OWWidget):
             self.removedClasses = "-"
             self.reducedClasses = "-"
             self.resortedClasses = "-"
+            self.removedMetas = "-"
+            self.reducedMetas = "-"
+            self.resortedMetas = "-"
             self.send("Data", None)
             self.data = None
 
@@ -107,9 +131,13 @@ class OWPurgeDomain(widget.OWWidget):
         class_flags = sum([Remove.SortValues * self.sortClasses,
                            Remove.RemoveConstant * self.removeClassAttribute,
                            Remove.RemoveUnusedValues * self.removeClasses])
-        remover = Remove(attr_flags, class_flags)
+        meta_flags = sum([Remove.SortValues * self.sortMetas,
+                           Remove.RemoveConstant * self.removeMetaAttributes,
+                           Remove.RemoveUnusedValues * self.removeMetas])
+
+        remover = Remove(attr_flags, class_flags, meta_flags)
         data = remover(self.data)
-        attr_res, class_res = remover.attr_results, remover.class_results
+        attr_res, class_res, meta_res = remover.attr_results, remover.class_results, remover.meta_results
 
         self.removedAttrs = attr_res['removed']
         self.reducedAttrs = attr_res['reduced']
@@ -118,6 +146,10 @@ class OWPurgeDomain(widget.OWWidget):
         self.removedClasses = class_res['removed']
         self.reducedClasses = class_res['reduced']
         self.resortedClasses = class_res['sorted']
+
+        self.removedMetas = meta_res['removed']
+        self.reducedMetas = meta_res['reduced']
+        self.resortedMetas = meta_res['sorted']
 
         self.send("Data", data)
 
@@ -129,7 +161,8 @@ class OWPurgeDomain(widget.OWWidget):
 
         self.report_items("Settings", (
             ("Features", list_opts(self.feature_options)),
-            ("Classes", list_opts(self.class_options))))
+            ("Classes", list_opts(self.class_options)),
+            ("Metas", list_opts(self.meta_options))))
         if self.data:
             self.report_items("Statistics", (
                 (label, getattr(self, value))
